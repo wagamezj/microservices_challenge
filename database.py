@@ -1,11 +1,9 @@
-# database.py
-
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
-# Carga las variables del archivo .env
+#dsd Carga las variables del archivo .env
 load_dotenv()
 
 DB_USER = os.getenv("DB_USER")

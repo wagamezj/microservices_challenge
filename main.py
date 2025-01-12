@@ -23,6 +23,11 @@ def get_db():
         db.close()
 
 
+@app.get("/")
+def root():
+    return {"message": "Bienvenido a servicios migración e ingesta de datos de Globant"}
+
+
 @app.post("/batch_insert", tags=["Data Insertion"])
 def batch_insert(batch_data: BatchData, db: Session = Depends(get_db)):
     """
@@ -174,7 +179,7 @@ def get_quarterly_hires_pandas(db: Session = Depends(get_db)):
 @app.get("/departments_above_mean", tags=['Query'])
 def get_departments_above_mean_pandas(db: Session = Depends(get_db)):
     """
-    Versión con pandas:
+   
     Retorna los departamentos que contrataron más empleados que el promedio de 2021,
     ordenados descendentemente por la cantidad de empleados (hired).
     """
