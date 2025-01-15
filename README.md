@@ -7,6 +7,9 @@ This is the proposed architecture, we have two machines in AWS (EC2), one with t
 
 For a more complex architecture, we could use private security networks, database replication, and other options, but we wanted to use the free tier of the services to put it into production.
 
+Additionally, one could consider adding an authentication system (JWT, OAuth2) to restrict access to these endpoints. 
+For transactions that do not comply with the rules, it is recommended to use a robust logging mechanism, properly capturing exceptions in the API and returning clear messages.
+
 For each step of the challenge, a different endpoint was designed, all documentation  : 
 
 http://ec2-54-209-94-223.compute-1.amazonaws.com/docs
