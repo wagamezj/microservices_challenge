@@ -39,6 +39,8 @@ Additionally, a portal was designed in PowerBI where you can see the tables and 
 
 https://app.powerbi.com/view?r=eyJrIjoiOTEyOGI0ZGYtYzZmNS00YmIzLWE2MTMtZTY0MDM0ODU2NDFmIiwidCI6IjU3N2ZjMWQ4LTA5MjItNDU4ZS04N2JmLWVjNGY0NTVlYjYwMCIsImMiOjR9
 
+![dash](https://github.com/wagamezj/microservices_challenge/blob/main/images/powerBIdash.png)
+
 
 
 
