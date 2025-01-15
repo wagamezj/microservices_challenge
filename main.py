@@ -25,15 +25,14 @@ def get_db():
 
 @app.get("/")
 def root():
-    return {"message": "Bienvenido a servicios migración e ingesta de datos de Globant"}
+    return {"message": "Welcome to Globant's data migration and ingestion services"}
 
 
 @app.post("/batch_insert", tags=["Data Insertion"])
 def batch_insert(batch_data: BatchData, db: Session = Depends(get_db)):
     """
-    Inserta datos en las tablas departments, jobs y hired_employees.
-    Se permiten de 1 a 1000 filas por lista. Las filas que no cumplan
-    con las reglas se loggean y no se insertan.
+    Inserts data into the departments, jobs, and hired employees tables. 1 to 1000 rows are allowed per list. 
+    Rows that do not meet the criteria are not inserted.
     """
     # Validación de tamaño de lote
     if len(batch_data.departments) > 1000 or len(batch_data.jobs) > 1000 or len(batch_data.hired_employees) > 1000:
@@ -76,20 +75,20 @@ def batch_insert(batch_data: BatchData, db: Session = Depends(get_db)):
             print(f"Error en hired_employee {emp.dict()}: {e}")
 
     db.commit()
-    return {"message": "Datos insertados exitosamente."}
+    return {"message": "Data inserted successfully."}
 
 
 @app.post("/load_csv",tags=["Data Insertion"])
 def load_csv_endpoint(table_name: str, file_path: str, db: Session = Depends(get_db)):
     """
-    Endpoint para cargar un archivo CSV a la tabla especificada.
-    
-    Params:
-    - table_name: Nombre de la tabla ("hired_employees", "departments", "jobs")
-    - file_path: Ruta completa del archivo CSV a cargar.
-    
-    Ejemplo de llamada:
-    POST /load_csv?table_name=departments&file_path=./data/departments.csv
+    Endpoint to upload a CSV file to the specified table.
+
+        Params:
+        - table_name: Name of the table ("hired_employees", "departments", "jobs")
+        - file_path: Full path of the CSV file to upload.
+
+        Example call:
+        POST /load_csv?table_name=departments&file_path=./data/departments.csv
     """
     try:
         load_csv(table_name, file_path, db)
@@ -103,7 +102,7 @@ def load_csv_endpoint(table_name: str, file_path: str, db: Session = Depends(get
 @app.get("/backup/{table_name}", tags=["Backup"])
 def backup(table_name: str, db: Session = Depends(get_db)):
     """
-    Endpoint para hacer backup de una tabla en formato AVRO.
+    Endpoint to backup a table in AVRO format.
     """
     try:
         file_path = backup_table(table_name, db)
@@ -114,7 +113,7 @@ def backup(table_name: str, db: Session = Depends(get_db)):
 @app.post("/restore/{table_name}", tags=["Backup"])
 def restore(table_name: str, backup_file: str, db: Session = Depends(get_db)):
     """
-    Endpoint para restaurar una tabla a partir de un archivo AVRO.
+    Endpoint to restore a table from an AVRO file.
     """
     try:
         restore_table(table_name, db, backup_file)
@@ -125,115 +124,103 @@ def restore(table_name: str, backup_file: str, db: Session = Depends(get_db)):
 
 @app.get("/Quarterly_hires", tags=['Query'])
 def get_quarterly_hires_pandas(db: Session = Depends(get_db)):
+
     """
-    Retorna el número de empleados contratados por cada job y departamento en 2021,
-    dividido por trimestre (Q1, Q2, Q3, Q4), ordenados alfabéticamente por department y job.
+    Returns the number of employees hired by each job and department in 2021,
+    divided by quarter (Q1, Q2, Q3, Q4), sorted alphabetically by department and job.
     """
     query_sql = text("""
-        SELECT d.department,
-               j.job,
-               he.datetime
+        SELECT 
+            d.department AS department, 
+            j.job AS job,
+            EXTRACT(QUARTER FROM he.datetime) AS quarter,
+            COUNT(*) AS hires
         FROM hired_employees he
         JOIN departments d ON he.department_id = d.id
         JOIN jobs j ON he.job_id = j.id
         WHERE EXTRACT(YEAR FROM he.datetime) = 2021
+        GROUP BY d.department, j.job, EXTRACT(QUARTER FROM he.datetime)
+        ORDER BY d.department, j.job;
     """)
-    rows = db.execute(query_sql).fetchall()
-    
-    df = pd.DataFrame(rows, columns=["department", "job", "datetime"])
-    df["datetime"] = pd.to_datetime(df["datetime"]) 
-    df["quarter"] = df["datetime"].dt.quarter
 
-    # 4. Contar hires agrupando por departamento, job, quarter
-    #    Equivalente a group by + count(*)
-    grouped = df.groupby(["department", "job", "quarter"]).size().reset_index(name="hires")
-    # grouped -> DataFrame con columnas [department, job, quarter, hires]
+    result = db.execute(query_sql).fetchall()
+    # result -> lista de filas con (department, job, quarter, hires)
 
-    # 5. Pivotear para tener Q1, Q2, Q3, Q4 en columnas
-    pivoted = grouped.pivot_table(
-        index=["department","job"], 
-        columns="quarter", 
-        values="hires", 
-        fill_value=0  # si no hubo contrataciones en ese quarter, poner 0
-    )
+    # Vamos a "pivotear" los datos para tener Q1, Q2, Q3, Q4 en columnas
+    # Estructura { (dep, job): {1: X, 2: Y, 3: Z, 4: W} }
+    quarterly_dict = {}
 
-    # 6. Asegurar que las columnas estén en orden Q1, Q2, Q3, Q4
-    #    pivoted.columns será algo como Int64Index([1,2,3,4], ...)
-    #    Reindexa para asegurar que las columnas existan (si no hubo hires en un quarter, no aparece).
-    pivoted = pivoted.reindex(columns=[1,2,3,4], fill_value=0)
+    for row in result:
+        department = row.department
+        job = row.job
+        quarter = int(row.quarter)
+        hires = row.hires
 
-    # 7. Renombrar columnas a Q1, Q2, Q3, Q4
-    pivoted.columns = ["Q1","Q2","Q3","Q4"]
+        if (department, job) not in quarterly_dict:
+            quarterly_dict[(department, job)] = {1: 0, 2: 0, 3: 0, 4: 0}
+        
+        quarterly_dict[(department, job)][quarter] = hires
 
-    # 8. Convertir el index (department, job) a columnas
-    pivoted = pivoted.reset_index()
+    # Convertimos esa estructura en una lista de diccionarios ordenados
+    response = []
+    # Orden alfabético por department y luego job
+    for (dep, job), quarters in sorted(quarterly_dict.items(), key=lambda x: (x[0][0], x[0][1])):
+        response.append({
+            "department": dep,
+            "job": job,
+            "Q1": quarters[1],
+            "Q2": quarters[2],
+            "Q3": quarters[3],
+            "Q4": quarters[4]
+        })
 
-    # 9. Ordenar alfabéticamente por department y job
-    pivoted = pivoted.sort_values(by=["department","job"])
-
-    # 10. Convertir a lista de dict para retornar como JSON
-    result = pivoted.to_dict(orient="records")
-
-    return result
+    return response
 
 @app.get("/departments_above_mean", tags=['Query'])
 def get_departments_above_mean_pandas(db: Session = Depends(get_db)):
     """
    
-    Retorna los departamentos que contrataron más empleados que el promedio de 2021,
-    ordenados descendentemente por la cantidad de empleados (hired).
-    """
+    Returns the departments that hired more employees than the 2021 average,
+    sorted in descending order by the number of employees (hired).
+    """ 
     query_sql = text("""
-        SELECT d.id AS department_id,
-               d.department AS department,
-               he.id AS hired_employee_id,
-               he.datetime
+        SELECT 
+            d.id AS id,
+            d.department AS department,
+            COUNT(*) AS hired
         FROM hired_employees he
         JOIN departments d ON he.department_id = d.id
         WHERE EXTRACT(YEAR FROM he.datetime) = 2021
+        GROUP BY d.id, d.department
+        -- ORDER BY hired DESC  <-- Podríamos ordenar aquí, pero lo haremos luego en Python.
     """)
 
     rows = db.execute(query_sql).fetchall()
-    # rows -> (department_id, department, hired_employee_id, datetime)
+    # rows -> lista de filas con (id, department, hired)
 
-    # Convertimos a DataFrame
-    df = pd.DataFrame(rows, columns=["department_id","department","hired_employee_id","datetime"])
-    # No se necesita dt.quarter aquí, solo necesitamos contar por department
-    # Asegurar que datetime sea datetime
-    df["datetime"] = pd.to_datetime(df["datetime"])
-
-    # Contar cuántos empleados se contrataron por departamento
-    grouped = df.groupby(["department_id","department"]).size().reset_index(name="hired")
-    # grouped -> DataFrame con [department_id, department, hired]
-
-    if grouped.empty:
+    if not rows:
         return []
 
-    # Calcular el promedio global
-    mean_val = grouped["hired"].mean()
+    # Calculamos el promedio (mean) de 'hired' en todos los departamentos
+    total_hired = sum(r.hired for r in rows)
+    mean_val = total_hired / len(rows) if len(rows) > 0 else 0
 
-    # Filtrar los departamentos que superan el promedio
-    above_mean = grouped[grouped["hired"] > mean_val]
+    # Filtramos aquellos cuyo 'hired' > mean_val
+    above_mean = [r for r in rows if r.hired > mean_val]
 
-    # Ordenar descendentemente por hired
-    above_mean = above_mean.sort_values(by="hired", ascending=False)
+    # Ordenamos descendentemente por hired
+    above_mean_sorted = sorted(above_mean, key=lambda x: x.hired, reverse=True)
 
-    # Convertir a lista de dict
-    result = above_mean.to_dict(orient="records")
-    # result -> [{'department_id': X, 'department': 'Name', 'hired': X}, ...]
-
-    # Si quieres devolver la clave como 'id' en vez de 'department_id'
-    # renombramos la columna en el DataFrame
-    # above_mean.rename(columns={'department_id': 'id'}, inplace=True)
-    # O lo transformamos en el diccionario final:
-    final_result = []
-    for row in result:
-        final_result.append({
-            "id": row["department_id"],
-            "department": row["department"],
-            "hired": row["hired"]
+    # Armamos la respuesta
+    response = []
+    for r in above_mean_sorted:
+        response.append({
+            "id": r.id,
+            "department": r.department,
+            "hired": r.hired
         })
 
+    return response
     return final_result
 
 
