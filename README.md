@@ -33,7 +33,16 @@ For the second challenge, we can use the same microservice from the previous exe
 1. Number of employees hired for each job and department in 2021 divided by quarter ------/Quarterly_hires
 2. List of ids, name and number of employees hired of each department that hired more employees ----------/departments_above_mean
 
-You can run a test from the API documentation page
+You can run a test from the API documentation page.
+
+Additionally, a portal was designed in PowerBI where you can see the tables and some additional graphics.
+
+https://app.powerbi.com/view?r=eyJrIjoiOTEyOGI0ZGYtYzZmNS00YmIzLWE2MTMtZTY0MDM0ODU2NDFmIiwidCI6IjU3N2ZjMWQ4LTA5MjItNDU4ZS04N2JmLWVjNGY0NTVlYjYwMCIsImMiOjR9
+
+
+
+
+
 
 
    
