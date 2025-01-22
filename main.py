@@ -1,5 +1,3 @@
-# main.py
-
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session 
 from sqlalchemy import text
@@ -14,7 +12,6 @@ import pandas as pd
 
 app = FastAPI(title="Servicio de Migracion e Ingesta de Datos Prueba Globant")
 
-# Dependencia para obtener la sesión de base de datos
 def get_db():
     db = SessionLocal()
     try:
@@ -34,7 +31,7 @@ def batch_insert(batch_data: BatchData, db: Session = Depends(get_db)):
     Inserts data into the departments, jobs, and hired employees tables. 1 to 1000 rows are allowed per list. 
     Rows that do not meet the criteria are not inserted.
     """
-    # Validación de tamaño de lote
+ 
     if len(batch_data.departments) > 1000 or len(batch_data.jobs) > 1000 or len(batch_data.hired_employees) > 1000:
         raise HTTPException(status_code=400, detail="Cada lista debe tener máximo 1000 registros.")
     
@@ -146,7 +143,7 @@ def get_quarterly_hires_pandas(db: Session = Depends(get_db)):
     result = db.execute(query_sql).fetchall()
     # result -> lista de filas con (department, job, quarter, hires)
 
-    # Vamos a "pivotear" los datos para tener Q1, Q2, Q3, Q4 en columnas
+    # "pivotear" los datos para tener Q1, Q2, Q3, Q4 en columnas
     # Estructura { (dep, job): {1: X, 2: Y, 3: Z, 4: W} }
     quarterly_dict = {}
 
@@ -192,26 +189,23 @@ def get_departments_above_mean_pandas(db: Session = Depends(get_db)):
         JOIN departments d ON he.department_id = d.id
         WHERE EXTRACT(YEAR FROM he.datetime) = 2021
         GROUP BY d.id, d.department
-        -- ORDER BY hired DESC  <-- Podríamos ordenar aquí, pero lo haremos luego en Python.
+        -- ORDER BY hired DESC 
     """)
 
     rows = db.execute(query_sql).fetchall()
-    # rows -> lista de filas con (id, department, hired)
-
     if not rows:
         return []
 
-    # Calculamos el promedio (mean) de 'hired' en todos los departamentos
+  
     total_hired = sum(r.hired for r in rows)
     mean_val = total_hired / len(rows) if len(rows) > 0 else 0
 
-    # Filtramos aquellos cuyo 'hired' > mean_val
+
     above_mean = [r for r in rows if r.hired > mean_val]
 
-    # Ordenamos descendentemente por hired
     above_mean_sorted = sorted(above_mean, key=lambda x: x.hired, reverse=True)
 
-    # Armamos la respuesta
+
     response = []
     for r in above_mean_sorted:
         response.append({

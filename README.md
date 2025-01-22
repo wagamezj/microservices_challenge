@@ -27,6 +27,9 @@ La base de datos fue aprovisionada en esta maquina :
 
 http://ec2-3-92-214-199.compute-1.amazonaws.com/
 
+wilmer070@gmail.com
+globant2024
+
 ![database](https://github.com/wagamezj/microservices_challenge/blob/main/images/db_postgrSQL.png)
 
 ## Challenge #2

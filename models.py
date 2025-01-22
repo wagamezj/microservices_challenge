@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship, declarative_base
-from database import engine
+
 
 Base = declarative_base()
 
@@ -24,7 +24,3 @@ class HiredEmployee(Base):
     
     department = relationship("Department", backref="employees")
     job = relationship("Job", backref="employees")
-
-
-"""def create_tables():
-    Base.metadata.create_all(bind=engine)"""

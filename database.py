@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 
-#dsd Carga las variables del archivo .env
+
 load_dotenv()
 
 DB_USER = os.getenv("DB_USER")
